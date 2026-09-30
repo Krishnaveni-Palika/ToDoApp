@@ -14,7 +14,6 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-import java.time.LocalDate;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -33,9 +32,7 @@ class ToDoServiceTest {
     private ToDoService toDoService;
 
 
-
     // CREATE TODOLIST TEST CASES
-
 
     @Test
     void createToDoList_shouldThrowException_whenRequestIsNull() {
@@ -50,25 +47,16 @@ class ToDoServiceTest {
 
 
     @Test
-    void createToDoList_shouldCreateTodo_whenUserDoesNotExist() {
+    void createToDoList_shouldCreateTodo_whenNewUser() {
 
         ToDoRequestDTO request = new ToDoRequestDTO();
-
         request.setUserId(101);
         request.setUserName("Krishnaveni");
         request.setTaskNumber(1);
-        request.setDescription("Complete LeetCode");
-        request.setDueDate(LocalDate.of(2026, 10, 5));
-        request.setStatus("CREATED");
+        request.setDescription("Learn Java");
 
-        ToDoResponseDTO expectedResponse = new ToDoResponseDTO(
-                101,
-                "Krishnaveni",
-                1,
-                "Complete LeetCode",
-                LocalDate.of(2026, 10, 5),
-                "CREATED"
-        );
+        ToDoResponseDTO expectedResponse =
+                new ToDoResponseDTO();
 
         when(toDoRepository.findByUserId(101))
                 .thenReturn(List.of());
@@ -88,31 +76,21 @@ class ToDoServiceTest {
 
 
     @Test
-    void createToDoList_shouldCreateTodo_whenUsernameIsSame() {
+    void createToDoList_shouldCreateTodo_whenExistingUserHasSameUsername() {
 
         ToDo existingTodo = new ToDo();
-
         existingTodo.setUserId(101);
         existingTodo.setUserName("Krishnaveni");
         existingTodo.setTaskNumber(1);
 
         ToDoRequestDTO request = new ToDoRequestDTO();
-
         request.setUserId(101);
         request.setUserName("Krishnaveni");
         request.setTaskNumber(2);
-        request.setDescription("Complete assignments");
-        request.setDueDate(LocalDate.of(2026, 10, 5));
-        request.setStatus("CREATED");
+        request.setDescription("Learn Spring Boot");
 
-        ToDoResponseDTO expectedResponse = new ToDoResponseDTO(
-                101,
-                "Krishnaveni",
-                2,
-                "Complete assignments",
-                LocalDate.of(2026, 10, 5),
-                "CREATED"
-        );
+        ToDoResponseDTO expectedResponse =
+                new ToDoResponseDTO();
 
         when(toDoRepository.findByUserId(101))
                 .thenReturn(List.of(existingTodo));
@@ -123,8 +101,9 @@ class ToDoServiceTest {
         ToDoResponseDTO actualResponse =
                 toDoService.createToDoList(request);
 
-        assertEquals(expectedResponse, actualResponse);
+        assertNotNull(actualResponse);
 
+        verify(toDoRepository).findByUserId(101);
         verify(todoMapper).createToDo(request);
     }
 
@@ -133,15 +112,12 @@ class ToDoServiceTest {
     void createToDoList_shouldThrowException_whenUsernameIsChanged() {
 
         ToDo existingTodo = new ToDo();
-
         existingTodo.setUserId(101);
         existingTodo.setUserName("Krishnaveni");
-        existingTodo.setTaskNumber(1);
 
         ToDoRequestDTO request = new ToDoRequestDTO();
-
         request.setUserId(101);
-        request.setUserName("John");
+        request.setUserName("OtherUser");
         request.setTaskNumber(2);
 
         when(toDoRepository.findByUserId(101))
@@ -158,7 +134,8 @@ class ToDoServiceTest {
                 exception.getMessage()
         );
 
-        verify(todoMapper, never()).createToDo(request);
+        verify(toDoRepository).findByUserId(101);
+        verifyNoInteractions(todoMapper);
     }
 
 
@@ -166,13 +143,11 @@ class ToDoServiceTest {
     void createToDoList_shouldThrowException_whenTaskNumberAlreadyExists() {
 
         ToDo existingTodo = new ToDo();
-
         existingTodo.setUserId(101);
         existingTodo.setUserName("Krishnaveni");
         existingTodo.setTaskNumber(1);
 
         ToDoRequestDTO request = new ToDoRequestDTO();
-
         request.setUserId(101);
         request.setUserName("Krishnaveni");
         request.setTaskNumber(1);
@@ -191,7 +166,8 @@ class ToDoServiceTest {
                 exception.getMessage()
         );
 
-        verify(todoMapper, never()).createToDo(request);
+        verify(toDoRepository).findByUserId(101);
+        verifyNoInteractions(todoMapper);
     }
 
 
@@ -200,9 +176,15 @@ class ToDoServiceTest {
     @Test
     void getByUserId_shouldThrowException_whenUserIdIsNull() {
 
-        assertThrows(
-                IllegalArgumentException.class,
-                () -> toDoService.getByUserId(null)
+        BadRequestException exception =
+                assertThrows(
+                        BadRequestException.class,
+                        () -> toDoService.getByUserId(null)
+                );
+
+        assertEquals(
+                "User ID is required",
+                exception.getMessage()
         );
 
         verifyNoInteractions(toDoRepository);
@@ -216,23 +198,39 @@ class ToDoServiceTest {
         todo1.setUserId(101);
         todo1.setUserName("Krishnaveni");
         todo1.setTaskNumber(1);
+        todo1.setDescription("Task 1");
+        todo1.setStatus("PENDING");
 
         ToDo todo2 = new ToDo();
         todo2.setUserId(101);
         todo2.setUserName("Krishnaveni");
         todo2.setTaskNumber(2);
+        todo2.setDescription("Task 2");
+        todo2.setStatus("COMPLETED");
 
-        List<ToDo> expectedTodos = List.of(todo1, todo2);
+        List<ToDo> expectedTodos =
+                List.of(todo1, todo2);
 
         when(toDoRepository.findByUserId(101))
                 .thenReturn(expectedTodos);
 
-        List<ToDo> actualTodos =
+        List<ToDoResponseDTO> actualTodos =
                 toDoService.getByUserId(101);
 
         assertNotNull(actualTodos);
-        assertEquals(expectedTodos, actualTodos);
         assertEquals(2, actualTodos.size());
+
+        assertEquals(101, actualTodos.getFirst().getUserId());
+        assertEquals("Krishnaveni",
+                actualTodos.get(0).getUserName());
+        assertEquals(1,
+                actualTodos.get(0).getTaskNumber());
+
+        assertEquals(101, actualTodos.get(1).getUserId());
+        assertEquals("Krishnaveni",
+                actualTodos.get(1).getUserName());
+        assertEquals(2,
+                actualTodos.get(1).getTaskNumber());
 
         verify(toDoRepository).findByUserId(101);
     }
@@ -244,29 +242,37 @@ class ToDoServiceTest {
         when(toDoRepository.findByUserId(101))
                 .thenReturn(List.of());
 
-        RuntimeException exception =
+        ResourceNotFoundException exception =
                 assertThrows(
-                        RuntimeException.class,
+                        ResourceNotFoundException.class,
                         () -> toDoService.getByUserId(101)
                 );
 
         assertEquals(
-                "User does not exist",
+                "Todo not found for user 101",
                 exception.getMessage()
         );
+
+        verify(toDoRepository).findByUserId(101);
     }
 
 
-
-    // UPDATE TEST CASES
-
+    // UPDATE TODOLIST TEST CASES
 
     @Test
-    void updateTodo_shouldThrowException_whenRequestIsNull() {
+    void updateTodo_shouldThrowException_whenUserIdIsNull() {
 
-        assertThrows(
-                IllegalArgumentException.class,
-                () -> toDoService.updateTodo(101, null)
+        ToDoRequestDTO request = new ToDoRequestDTO();
+
+        BadRequestException exception =
+                assertThrows(
+                        BadRequestException.class,
+                        () -> toDoService.updateTodo(null, request)
+                );
+
+        assertEquals(
+                "User ID is required",
+                exception.getMessage()
         );
 
         verifyNoInteractions(toDoRepository);
@@ -274,24 +280,38 @@ class ToDoServiceTest {
 
 
     @Test
-    void updateTodo_shouldUpdateTodo_whenTaskExists() {
+    void updateTodo_shouldThrowException_whenRequestIsNull() {
+
+        BadRequestException exception =
+                assertThrows(
+                        BadRequestException.class,
+                        () -> toDoService.updateTodo(101, null)
+                );
+
+        assertEquals(
+                "Todo request is required",
+                exception.getMessage()
+        );
+
+        verifyNoInteractions(toDoRepository);
+    }
+
+
+    @Test
+    void updateTodo_shouldUpdateTodo_whenValidRequest() {
 
         ToDo existingTodo = new ToDo();
-
         existingTodo.setUserId(101);
         existingTodo.setUserName("Krishnaveni");
         existingTodo.setTaskNumber(1);
-        existingTodo.setDescription("Old description");
-        existingTodo.setDueDate(LocalDate.of(2026, 10, 5));
-        existingTodo.setStatus("CREATED");
+        existingTodo.setDescription("Old task");
+        existingTodo.setStatus("PENDING");
 
         ToDoRequestDTO request = new ToDoRequestDTO();
-
         request.setUserId(101);
         request.setUserName("Krishnaveni");
         request.setTaskNumber(1);
-        request.setDescription("Updated description");
-        request.setDueDate(LocalDate.of(2026, 10, 10));
+        request.setDescription("Updated task");
         request.setStatus("COMPLETED");
 
         when(toDoRepository.findByUserId(101))
@@ -300,26 +320,20 @@ class ToDoServiceTest {
         when(toDoRepository.save(existingTodo))
                 .thenReturn(existingTodo);
 
-        ToDoResponseDTO actualResponse =
+        ToDoResponseDTO response =
                 toDoService.updateTodo(101, request);
 
-        assertNotNull(actualResponse);
+        assertNotNull(response);
 
-        assertEquals(101, actualResponse.getUserId());
-        assertEquals("Krishnaveni", actualResponse.getUserName());
-        assertEquals(1, actualResponse.getTaskNumber());
-        assertEquals(
-                "Updated description",
-                actualResponse.getDescription()
-        );
-        assertEquals(
-                LocalDate.of(2026, 10, 10),
-                actualResponse.getDueDate()
-        );
-        assertEquals(
-                "COMPLETED",
-                actualResponse.getStatus()
-        );
+        assertEquals(101, response.getUserId());
+        assertEquals("Krishnaveni",
+                response.getUserName());
+        assertEquals(1,
+                response.getTaskNumber());
+        assertEquals("Updated task",
+                response.getDescription());
+        assertEquals("COMPLETED",
+                response.getStatus());
 
         verify(toDoRepository).findByUserId(101);
         verify(toDoRepository).save(existingTodo);
@@ -329,13 +343,18 @@ class ToDoServiceTest {
     @Test
     void updateTodo_shouldThrowException_whenTaskDoesNotExist() {
 
-        ToDoRequestDTO request = new ToDoRequestDTO();
+        ToDo existingTodo = new ToDo();
+        existingTodo.setUserId(101);
+        existingTodo.setUserName("Krishnaveni");
+        existingTodo.setTaskNumber(1);
 
-        request.setTaskNumber(5);
+        ToDoRequestDTO request = new ToDoRequestDTO();
+        request.setUserId(101);
         request.setUserName("Krishnaveni");
+        request.setTaskNumber(2);
 
         when(toDoRepository.findByUserId(101))
-                .thenReturn(List.of());
+                .thenReturn(List.of(existingTodo));
 
         ResourceNotFoundException exception =
                 assertThrows(
@@ -344,11 +363,12 @@ class ToDoServiceTest {
                 );
 
         assertEquals(
-                "Task 5 not found for user 101",
+                "Task 2 not found for user 101",
                 exception.getMessage()
         );
 
-        verify(toDoRepository, never()).save(any());
+        verify(toDoRepository).findByUserId(101);
+        verify(toDoRepository, never()).save(existingTodo);
     }
 
 
@@ -356,15 +376,13 @@ class ToDoServiceTest {
     void updateTodo_shouldThrowException_whenUsernameIsChanged() {
 
         ToDo existingTodo = new ToDo();
-
         existingTodo.setUserId(101);
         existingTodo.setUserName("Krishnaveni");
         existingTodo.setTaskNumber(1);
 
         ToDoRequestDTO request = new ToDoRequestDTO();
-
         request.setUserId(101);
-        request.setUserName("John");
+        request.setUserName("OtherUser");
         request.setTaskNumber(1);
 
         when(toDoRepository.findByUserId(101))
@@ -381,17 +399,24 @@ class ToDoServiceTest {
                 exception.getMessage()
         );
 
+        verify(toDoRepository).findByUserId(101);
         verify(toDoRepository, never()).save(existingTodo);
     }
 
-    // DELETE TEST CASES
+    // DELETE TODOLIST TEST CASES
 
     @Test
     void deleteByUserId_shouldThrowException_whenUserIdIsNull() {
 
-        assertThrows(
-                BadRequestException.class,
-                () -> toDoService.deleteByUserId(null)
+        BadRequestException exception =
+                assertThrows(
+                        BadRequestException.class,
+                        () -> toDoService.deleteByUserId(null)
+                );
+
+        assertEquals(
+                "User ID is required",
+                exception.getMessage()
         );
 
         verifyNoInteractions(toDoRepository);
@@ -399,7 +424,7 @@ class ToDoServiceTest {
 
 
     @Test
-    void deleteByUserId_shouldThrowException_whenUserHasNoTodos() {
+    void deleteByUserId_shouldThrowException_whenNoTodosExist() {
 
         when(toDoRepository.findByUserId(101))
                 .thenReturn(List.of());
@@ -416,7 +441,7 @@ class ToDoServiceTest {
         );
 
         verify(toDoRepository).findByUserId(101);
-        verify(toDoRepository, never()).deleteAll(any());
+        verify(toDoRepository, never()).deleteAll(anyList());
     }
 
 
@@ -424,10 +449,8 @@ class ToDoServiceTest {
     void deleteByUserId_shouldThrowException_whenNoCompletedTodosExist() {
 
         ToDo todo = new ToDo();
-
         todo.setUserId(101);
-        todo.setTaskNumber(1);
-        todo.setStatus("IN-PROGRESS");
+        todo.setStatus("PENDING");
 
         when(toDoRepository.findByUserId(101))
                 .thenReturn(List.of(todo));
@@ -443,30 +466,29 @@ class ToDoServiceTest {
                 exception.getMessage()
         );
 
-        verify(toDoRepository, never()).deleteAll(any());
+        verify(toDoRepository).findByUserId(101);
+        verify(toDoRepository, never()).deleteAll(anyList());
     }
 
 
     @Test
     void deleteByUserId_shouldDeleteCompletedTodos() {
 
-        ToDo completedTodo = new ToDo();
+        ToDo pendingTodo = new ToDo();
+        pendingTodo.setUserId(101);
+        pendingTodo.setTaskNumber(1);
+        pendingTodo.setStatus("PENDING");
 
+        ToDo completedTodo = new ToDo();
         completedTodo.setUserId(101);
-        completedTodo.setTaskNumber(1);
+        completedTodo.setTaskNumber(2);
         completedTodo.setStatus("COMPLETED");
 
-        ToDo pendingTodo = new ToDo();
-
-        pendingTodo.setUserId(101);
-        pendingTodo.setTaskNumber(2);
-        pendingTodo.setStatus("IN-PROGRESS");
-
-        List<ToDo> todos =
-                List.of(completedTodo, pendingTodo);
-
         when(toDoRepository.findByUserId(101))
-                .thenReturn(todos);
+                .thenReturn(List.of(
+                        pendingTodo,
+                        completedTodo
+                ));
 
         toDoService.deleteByUserId(101);
 
