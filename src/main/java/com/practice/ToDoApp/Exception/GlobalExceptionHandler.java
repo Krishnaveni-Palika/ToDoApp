@@ -1,10 +1,11 @@
 package com.practice.ToDoApp.Exception;
 
+import jakarta.validation.ConstraintViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.bind.MethodArgumentNotValidException;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -21,7 +22,10 @@ public class GlobalExceptionHandler {
         ex.getBindingResult()
                 .getFieldErrors()
                 .forEach(error ->
-                        errors.put(error.getField(), error.getDefaultMessage())
+                        errors.put(
+                                error.getField(),
+                                error.getDefaultMessage()
+                        )
                 );
 
         return ResponseEntity
@@ -34,7 +38,6 @@ public class GlobalExceptionHandler {
             ResourceNotFoundException ex) {
 
         Map<String, String> error = new HashMap<>();
-
         error.put("error", ex.getMessage());
 
         return ResponseEntity
@@ -47,11 +50,20 @@ public class GlobalExceptionHandler {
             BadRequestException ex) {
 
         Map<String, String> error = new HashMap<>();
-
         error.put("error", ex.getMessage());
 
         return ResponseEntity
                 .status(HttpStatus.BAD_REQUEST)
                 .body(error);
+    }
+
+    // Handles @Positive, @Min, @Max, etc. on @PathVariable
+    @ExceptionHandler(ConstraintViolationException.class)
+    public ResponseEntity<Map<String, String>> handleConstraintViolation(
+            ConstraintViolationException ex) {
+
+        return ResponseEntity
+                .status(HttpStatus.BAD_REQUEST)
+                .body(Map.of("error", ex.getMessage()));
     }
 }
